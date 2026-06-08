@@ -1,21 +1,3 @@
-# ========================================
-# 系统服务工具 - wk版 一键安装命令
-# ========================================
-#
-# 【方式一】一键curl命令（推荐）
-# 把wk-svc.sh上传到GitHub后，直接在终端执行：
-#
-#   curl -L https://raw.githubusercontent.com/wangzi1322580/wk/main/wk-svc.sh | bash
-#
-# 或者用wget：
-#
-#   wget -O wk-svc.sh https://raw.githubusercontent.com/wangzi1322580/wk/main/wk-svc.sh && bash wk-svc.sh
-#
-# 【方式二】手动粘贴（如果curl命令无法使用）
-# 复制下面从 cat 到 EOF 的所有内容，粘贴到终端执行
-# ========================================
-
-cat > wk-svc.sh << 'EOF'
 #!/bin/bash
 
 # ========================================
@@ -26,11 +8,44 @@ cat > wk-svc.sh << 'EOF'
 # ========================================
 
 # ========================================
-# 自动安装：如果脚本不在/root/目录，自动复制并设置wk快捷命令
-# 说明：这样用户用curl一键运行时，脚本会自动安装到系统中
+# 管道运行检测：如果stdin不是终端（curl|bash方式），先安装再重新以终端方式执行
+# 说明：curl|bash时stdin是管道，read命令无法读取键盘输入，必须重新以终端执行
+# ========================================
+INSTALL_PATH="/root/wk-svc.sh"
+
+if [ ! -t 0 ]; then
+    # stdin不是终端，说明是管道运行（curl|bash）
+    # 从GitHub下载脚本到/root/目录
+    echo "正在安装脚本..."
+    if command -v wget &> /dev/null; then
+        wget -O "$INSTALL_PATH" "https://raw.githubusercontent.com/wangzi1322580/wk/main/wk-svc.sh"
+    elif command -v curl &> /dev/null; then
+        curl -L -o "$INSTALL_PATH" "https://raw.githubusercontent.com/wangzi1322580/wk/main/wk-svc.sh"
+    fi
+    
+    chmod +x "$INSTALL_PATH"
+    
+    # 添加wk快捷命令到.bashrc
+    if ! grep -q "alias wk=" ~/.bashrc 2>/dev/null; then
+        echo "alias wk='$INSTALL_PATH'" >> ~/.bashrc
+    fi
+    
+    echo "=========================================="
+    echo "脚本已自动安装到 $INSTALL_PATH"
+    echo "wk快捷命令已添加，下次可直接输入 wk 进入面板"
+    echo "正在启动..."
+    echo "=========================================="
+    echo ""
+    
+    # 重新以终端方式执行脚本，这样read命令就能读取键盘输入了
+    exec bash "$INSTALL_PATH" </dev/tty
+fi
+
+# ========================================
+# 本地运行检测：如果脚本不在/root/目录，自动复制并设置wk快捷命令
+# 说明：直接运行脚本文件时，自动安装到系统中
 # ========================================
 SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-INSTALL_PATH="/root/wk-svc.sh"
 
 if [ "$SCRIPT_PATH" != "$INSTALL_PATH" ]; then
     # 复制脚本到/root/目录
@@ -331,7 +346,7 @@ set_process_name() {
     echo -e "${BLUE}说明：设置进程名可以隐藏程序进程，让系统显示为其他名称${NC}"
     echo ""
     echo -e "${GREEN}请选择预设的进程名：${NC}"
-    echo -e "${GREEN}1.${NC} systemd    - 系统服务管理器"
+    echo -e "${GREEN}1.${NC} systemd    - 系统服务"
     echo -e "${GREEN}2.${NC} sshd       - SSH守护进程"
     echo -e "${GREEN}3.${NC} nginx      - Web服务器"
     echo -e "${GREEN}4.${NC} apache2    - Web服务器"
@@ -772,26 +787,3 @@ while true; do
             ;;
     esac
 done
-EOF
-
-chmod +x wk-svc.sh
-
-# 添加wk快捷命令到.bashrc
-if ! grep -q "alias wk=" ~/.bashrc 2>/dev/null; then
-    echo "alias wk='~/wk-svc.sh'" >> ~/.bashrc
-    echo "已添加wk快捷命令到~/.bashrc"
-fi
-
-# 重新加载.bashrc使快捷命令立即生效
-source ~/.bashrc 2>/dev/null || true
-
-echo ""
-echo "=========================================="
-echo "安装完成！"
-echo "=========================================="
-echo "现在可以使用 'wk' 命令快速打开管理面板"
-echo "或者运行: ./wk-svc.sh"
-echo "=========================================="
-echo ""
-
-./wk-svc.sh
